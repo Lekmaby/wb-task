@@ -1,0 +1,6 @@
+mail.r
+mailru
+mail
+example.com
+test.com
+example

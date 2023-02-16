@@ -4,19 +4,14 @@ declare(strict_types=1);
 namespace Src\App\Model;
 
 use Exception;
-use Src\App\Validator\Rules\BlackListRule;
-use Src\App\Validator\Rules\Custom\UserNameRule;
-use Src\App\Validator\Rules\DomainBlackListRule;
-use Src\App\Validator\Rules\EmailRule;
-use Src\App\Validator\Rules\GreaterThanDateRule;
-use Src\App\Validator\Rules\MinLengthRule;
-use Src\App\Validator\Rules\RequiredRule;
-use Src\App\Validator\Rules\UniqueRule;
-use Src\App\Validator\ValidationException;
-use Src\App\Validator\Validator;
+use Src\App\Database\ConnectionManager;
+use Src\App\Database\DBConnection;
+use Src\App\traits\Archivable;
 
 class User extends Record
 {
+	use Archivable;
+
 	public static string $table = 'users';
 
 	public int $id;
@@ -25,6 +20,7 @@ class User extends Record
 	public \DateTime $created;
 	public \DateTime|null $deleted = null;
 	public string|null $notes = null;
+	protected string $validatorClass = UserValidation::class;
 
 	/**
 	 * Validate user
@@ -32,30 +28,7 @@ class User extends Record
 	 */
 	public function isValid($action = 'default'): bool
 	{
-		$validator = new Validator('UserIsValid', __CLASS__);
-		$validator
-			->addRule(new RequiredRule('name'))
-			->addRule(new UserNameRule('name'))
-			->addRule(new MinLengthRule('name', 8))
-			->addRule(new BlackListRule('name'))
-			->addRule(new UniqueRule('name', __CLASS__))
-			->addRule(new RequiredRule('email'))
-			->addRule(new EmailRule('email'))
-			->addRule(new DomainBlackListRule('email'))
-			->addRule(new UniqueRule('email', __CLASS__))
-			->addRule(new RequiredRule('created'));
-
-		if ($action === 'delete') {
-			$validator->addRule(new GreaterThanDateRule('deleted', 'created'));
-		}
-
-		$valid = $validator->validate($this);
-
-		if (!$valid) {
-			throw new ValidationException(implode('; ' . PHP_EOL, $validator->errors));
-		}
-
-		return $valid;
+		return (new ${$this->validatorClass}($this, $action))->isValid();
 	}
 
 	public function delete(): bool
@@ -64,4 +37,38 @@ class User extends Record
 		return parent::delete();
 	}
 
+	public function getFields(): array
+	{
+		return ['id', 'name', 'email', 'created', 'deleted', 'notes'];
+	}
+
+	public function toArray(): array
+	{
+		$result = [];
+		foreach ($this->getFields() as $field) {
+			$result[$field] = $this->$field;
+		}
+
+		return $result;
+	}
+
+	public function fill(array $data): User
+	{
+		foreach ($this->getFields() as $field) {
+			$this->$field = $data[$field] ?? $this->$field;
+		}
+
+		return $this;
+	}
+
+	public function getArchiveConnection(): DBConnection|null
+	{
+		return ConnectionManager::getInstance()->get('archive');
+	}
+
+	protected function afterCreate()
+	{
+		$mongo = ConnectionManager::getInstance()->get('mongo');
+		$mongo->create($this::$table, $this->toArray());
+	}
 }

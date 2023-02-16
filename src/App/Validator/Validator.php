@@ -44,10 +44,10 @@ class Validator
 
 	/**
 	 * Validate item with all rules
-	 * @param $item array or object to validate
+	 * @param array|Record $item  or object to validate
 	 * @return bool Final validation result
 	 */
-	public function validate($item): bool
+	public function validate(array|Record $item): bool
 	{
 		$valid = true;
 		if ($item instanceof Record) {

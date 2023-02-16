@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Src\App\Service;
 
+use PDO;
 use Src\App\Util\Response;
 
 class DatabaseConnection
@@ -37,15 +38,15 @@ class DatabaseConnection
 	 * @param string $sql SQL query
 	 * @return bool SQL query result
 	 */
-	public function query(string $sql): bool
+	public function query(string $sql): array
 	{
 		try {
-			// run sql query to db
+			$result = $this->dbh->query($sql)->fetch(PDO::FETCH_ASSOC);
 			echo date('Y-m-d H:i:s') . ' query ' . $sql;
 		} catch (\PDOException $e) {
 			Response::sendException($e);
 		}
 
-		return true;
+		return $result;
 	}
 }

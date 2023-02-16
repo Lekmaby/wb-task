@@ -2,6 +2,7 @@
 
 namespace Src\App\Validator;
 
+use Src\App\Model\Record;
 use Src\App\Service\DatabaseConnection;
 
 /**
@@ -34,7 +35,7 @@ abstract class Rule
 	 * @param $item
 	 * @return bool
 	 */
-	abstract public function validate($item): bool;
+	abstract public function validate(array|Record $item): bool;
 
 	/**
 	 * Reset rule validation result

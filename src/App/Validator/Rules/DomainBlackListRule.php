@@ -2,6 +2,7 @@
 
 namespace Src\App\Validator\Rules;
 
+use Src\App\Database\DBConnection;
 use Src\App\Service\BadDomainsList;
 use Src\App\Validator\Rule;
 
@@ -11,12 +12,17 @@ use Src\App\Validator\Rule;
 class DomainBlackListRule extends Rule
 {
 	private array $blackList;
+	private ?DBConnection $connection;
 
-	public function __construct($field)
+	public function __construct($field, DBConnection $connection = null)
 	{
 		parent::__construct($field);
-		$badDomainsInstance = BadDomainsList::getInstance();
-		$this->blackList = $badDomainsInstance->items;
+		if ($connection) {
+			$this->connection = $connection;
+		} else {
+			$badDomainsInstance = BadDomainsList::getInstance();
+			$this->blackList = $badDomainsInstance->items;
+		}
 	}
 
 	public function validate($item): bool
@@ -26,7 +32,15 @@ class DomainBlackListRule extends Rule
 
 		if (is_string($value)) {
 			$domain = substr($value, strpos($value, '@') + 1);
-			if (in_array($domain, $this->blackList, true)) {
+			if ($this->connection) {
+				$result = $this->connection->find('domains', 'name', $value);
+
+				if ($result !== false) {
+					$this->valid = false;
+					$this->message = "Domain '$domain' is blacklisted";
+				}
+
+			} elseif (in_array($domain, $this->blackList, true)) {
 				$this->valid = false;
 				$this->message = "Domain '$domain' is blacklisted";
 			}

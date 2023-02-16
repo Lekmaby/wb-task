@@ -2,10 +2,11 @@
 
 namespace Src\App\Validator\Rules;
 
+use Src\App\Model\Record;
 use Src\App\Validator\Rule;
 
 /**
- *    Check if there is no record in the database with the same field value
+ *    Check if there is no record in the Database with the same field value
  */
 class UniqueRule extends Rule
 {
@@ -14,15 +15,18 @@ class UniqueRule extends Rule
 		parent::__construct($field);
 	}
 
-	public function validate($item): bool
+	public function validate(Record|array $item): bool
 	{
 		$this->valid = true;
 		$value = $item[$this->field];
-		$table = $this->class::$table;
-		$sql = 'SELECT COUNT(1) FROM ' . $table . ' WHERE ' . $this->field . ' = "' . $value . '" LIMIT 1';
-		$result = $this->db->dbh !== null ? $this->db->query($sql) : 0;
 
-		if ($result > 0) {
+		$connection = is_array($value) ? (new $this->class)->getConnection() : $item->getConnection();
+
+
+		$table = is_array($value) ? (new $this->class)::$table : $item::$table;
+		$existItem = $connection->find($table, $this->field, $value);
+
+		if ($existItem !== false) {
 			$this->valid = false;
 			$this->message = 'Field must be unique';
 		}

@@ -2,19 +2,26 @@
 
 namespace Src\App\Model;
 
-use Src\App\Service\DatabaseConnection;
+use Src\App\Database\ConnectionManager;
+use Src\App\Database\DBConnection;
 use Src\App\Service\Logger;
 
 abstract class Record
 {
 	protected readonly Logger $logger;
-	protected readonly DatabaseConnection $db;
+	protected readonly DBConnection $db;
 	public static string $table;
+	protected string $validatorClass;
+	protected int $id;
 
-	public function __construct(Logger $logger, DatabaseConnection $db)
+	public function __construct(Logger $logger, DBConnection $db = null)
 	{
 		$this->logger = $logger;
-		$this->db = $db;
+		$this->db = $db ?? ConnectionManager::getInstance()->getDefault();
+	}
+
+	public function getConnection(): DBConnection{
+		return $this->db;
 	}
 
 	/**
@@ -24,8 +31,7 @@ abstract class Record
 	 */
 	public function get(int $id): array
 	{
-		$result = $this->db->query('get record');
-		return [];
+		return $this->db->get($this::$table, $id);
 	}
 
 	/**
@@ -35,8 +41,15 @@ abstract class Record
 	public function create()
 	{
 		if ($this->isValid('create')) {
-			$result = $this->db->query('create record');
-			$this->logger->addLog('created user');
+			$result = $this->db->create($this::$table, $this->toArray());
+
+			if(isset($result['id'])){
+				$this->logger->addLog('created user');
+				$this->fill($result);
+				$this->afterCreate();
+			} else {
+				$this->logger->addLog('error when creating user');
+			}
 			return $result;
 		}
 
@@ -51,8 +64,10 @@ abstract class Record
 	public function update()
 	{
 		if ($this->isValid('update')) {
-			$result = $this->db->query('update record');
+			$result = $this->db->update($this::$table, $this->id, $this->toArray());
 			$this->logger->addLog('updated user');
+			$this->fill($result);
+			$this->afterUpdate();
 			return $result;
 		}
 
@@ -67,8 +82,9 @@ abstract class Record
 	public function delete()
 	{
 		if ($this->isValid('delete')) {
-			$result = $this->db->query('delete record');
+			$result = $this->db->delete($this::$table, $this->id);
 			$this->logger->addLog('deleted user');
+			$this->afterDelete();
 			return $result;
 		}
 
@@ -84,5 +100,31 @@ abstract class Record
 	public function isValid(string $action = 'default'): bool
 	{
 		return true;
+	}
+
+	public function setValidatorClass($classname)
+	{
+		$this->validatorClass = $classname;
+	}
+
+	abstract public function toArray(): array;
+
+	abstract public function fill(array $data): Record;
+
+	abstract public function getFields(): array;
+
+	protected function afterCreate()
+	{
+
+	}
+
+	protected function afterUpdate()
+	{
+
+	}
+
+	protected function afterDelete()
+	{
+
 	}
 }
